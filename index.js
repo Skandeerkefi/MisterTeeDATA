@@ -163,3 +163,13 @@ app.use("/api/gws", gwsRoutes);
 app.listen(PORT, () =>
 	console.log(`✅ Server is running at http://localhost:${PORT}`)
 );
+const leaderboardRoutes = require("./routes/leaderboard");
+// Routes
+app.use("/api/leaderboard", leaderboardRoutes);
+
+// Basic health check endpoint
+app.get("/health", (req, res) => {
+	res
+		.status(200)
+		.json({ status: "OK", message: "Roobet Leaderboard API is running" });
+});
