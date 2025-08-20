@@ -53,6 +53,7 @@ const allowedOrigins = [
 	"http://localhost:5173",
 	"https://mister-tee.vercel.app",
 	"misterteedata.railway.internal",
+	"https://mister-tee.vercel.app/Leaderboards",
 ];
 
 app.use(
