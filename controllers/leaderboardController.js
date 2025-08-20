@@ -85,6 +85,7 @@ const leaderboardController = {
 				),
 				favoriteGameId: player.favoriteGameId,
 				favoriteGameTitle: player.favoriteGameTitle,
+				rankLevelImage: player.rankLevelImage,
 			}));
 
 			// Sort by weighted wager (descending)
