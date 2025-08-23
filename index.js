@@ -13,7 +13,7 @@ const fetch = (...args) =>
 
 const app = express();
 const PORT = 3000;
-
+const axios = require("axios");
 // Schedule job to run every minute
 cron.schedule("* * * * *", async () => {
 	console.log("Running giveaway auto-draw job...");
@@ -173,4 +173,50 @@ app.get("/health", (req, res) => {
 	res
 		.status(200)
 		.json({ status: "OK", message: "Roobet Leaderboard API is running" });
+});
+// Rain.gg API Config
+const API_URL = "https://api.rain.gg/v1/affiliates/leaderboard";
+const API_KEY = process.env.RAIN_API_KEY; // store your key in .env
+
+// Leaderboard route
+app.get("/rain", async (req, res) => {
+	try {
+		const { start_date, end_date, type, code } = req.query;
+
+		// Validate required params
+		if (!start_date || !end_date || !type) {
+			return res.status(400).json({
+				error: "Missing required params: start_date, end_date, type",
+			});
+		}
+
+		// Make request to Rain.gg
+		const response = await axios.get(API_URL, {
+			headers: {
+				"x-api-key": API_KEY,
+			},
+			params: {
+				start_date,
+				end_date,
+				type, // must be 'wagered' or 'deposited'
+				code, // optional
+			},
+		});
+
+		// Return data
+		res.json(response.data);
+	} catch (err) {
+		// Log detailed error
+		if (err.response) {
+			console.error(
+				"Rain.gg API Error:",
+				err.response.status,
+				JSON.stringify(err.response.data, null, 2)
+			);
+			res.status(err.response.status).json(err.response.data);
+		} else {
+			console.error("Unexpected Error:", err.message);
+			res.status(500).json({ error: err.message });
+		}
+	}
 });
