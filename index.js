@@ -111,6 +111,30 @@ app.post("/api/auth/register", async (req, res) => {
 
 	res.status(201).json({ message: "User registered." });
 });
+// Packdraw leaderboard proxy
+app.get("/api/packdraw", async (req, res) => {
+	try {
+		const after = req.query.after;
+		if (!after) {
+			return res.status(400).json({ error: "Missing ?after=YYYY-MM-DD" });
+		}
+
+		const url = `https://packdraw.com/api/v1/affiliates/leaderboard?after=${after}&apiKey=844edef3-207a-454a-b78b-bc76a2d61a5e`;
+
+		const response = await fetch(url);
+		const text = await response.text();
+
+		if (!response.ok) {
+			return res.status(response.status).json({ error: text });
+		}
+
+		res.json(JSON.parse(text));
+	} catch (err) {
+		console.error("Packdraw Proxy Error:", err);
+		res.status(500).json({ error: "Failed to reach Packdraw API" });
+	}
+});
+
 
 app.post("/api/auth/login", async (req, res) => {
 	const { kickUsername, password } = req.body;
