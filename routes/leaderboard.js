@@ -7,28 +7,15 @@ router.get("/", leaderboardController.getLeaderboard);
 
 // Get leaderboard for a specific date range
 router.get("/:startDate/:endDate", leaderboardController.getLeaderboardByDate);
+
+// NEW CSGOWIN LEADERBOARD API
 router.get("/csgowin", async (req, res) => {
 	try {
-		const { take = 10, skip = 0, startDate, endDate } = req.query;
+		// Your unique leaderboard code
+		const code = "mistertee";
 
-		// Use provided gt/lt or default to last 7 days
-		const gt = startDate
-			? parseInt(startDate)
-			: Date.now() - 7 * 24 * 60 * 60 * 1000;
-		const lt = endDate ? parseInt(endDate) : Date.now();
-
-		const params = new URLSearchParams({
-			code: "mistertee",
-			gt,
-			lt,
-			by: "wager",
-			sort: "desc",
-			search: "",
-			take,
-			skip,
-		});
-
-		const url = `https://api.csgowin.com/api/affiliate/external?${params.toString()}`;
+		// New API from CSGOWin
+		const url = `https://api.csgowin.com/api/leaderboard/${code}`;
 
 		const response = await fetch(url, {
 			headers: {
@@ -38,10 +25,11 @@ router.get("/csgowin", async (req, res) => {
 
 		if (!response.ok) {
 			const text = await response.text();
-			throw new Error(text || "Failed to fetch leaderboard");
+			throw new Error(text || "Failed to fetch CSGOWin leaderboard");
 		}
 
 		const data = await response.json();
+
 		res.json(data);
 	} catch (err) {
 		console.error("CSGOWin leaderboard fetch error:", err.message);
