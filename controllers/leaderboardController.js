@@ -14,16 +14,17 @@ const leaderboardController = {
 		try {
 			const { startDate, endDate } = req.query;
 
+			// ✅ Only allowed categories (from Roobet docs)
 			const params = {
 				userId: process.env.USER_ID,
-				categories: "slots,provably fair", // Slots & House games only
-				providers: "-dice", // Exclude dice games
+				categories: "slots,provably fair", 
+				// ❌ providers removed (not allowed for category filtering)
+				// ❌ dice exclusion removed, already excluded by category
 			};
 
 			if (startDate) params.startDate = startDate;
 			if (endDate) params.endDate = endDate;
 
-			// ✅ Call Roobet Affiliate API directly
 			const response = await axios.get(
 				`${process.env.API_BASE_URL}/affiliate/v2/stats`,
 				{
@@ -34,12 +35,11 @@ const leaderboardController = {
 				}
 			);
 
-			// ✅ Use weightedWagered directly from Roobet
 			const processedData = response.data.map((player) => ({
 				uid: player.uid,
 				username: blurUsername(player.username),
 				wagered: player.wagered,
-				weightedWagered: player.weightedWagered, // ✅ direct from API
+				weightedWagered: player.weightedWagered,
 				favoriteGameId: player.favoriteGameId,
 				favoriteGameTitle: player.favoriteGameTitle,
 				rankLevel: player.rankLevel,
@@ -47,18 +47,18 @@ const leaderboardController = {
 				highestMultiplier: player.highestMultiplier,
 			}));
 
-			// ✅ Sort descending by weighted wager
 			processedData.sort((a, b) => b.weightedWagered - a.weightedWagered);
 
 			const leaderboardWithDisclosure = {
 				disclosure:
-					"Weighted wager values are provided directly by Roobet's Affiliate API and reflect official contribution weighting based on RTP and game category. Only Slots and House Games (excluding Dice) are counted.",
+					"Leaderboard filtered to Slots & House Games only using official Roobet categories (slots,provably fair). Dice and other excluded games are automatically filtered out based on the category rules.",
 				data: processedData,
 			};
 
 			res.json(leaderboardWithDisclosure);
 		} catch (error) {
 			console.error("Error fetching leaderboard data:", error.message);
+
 			res.status(500).json({
 				error: "Failed to fetch leaderboard data",
 				details: error.response?.data || error.message,
@@ -73,7 +73,6 @@ const leaderboardController = {
 			const params = {
 				userId: process.env.USER_ID,
 				categories: "slots,provably fair",
-				providers: "-dice",
 				startDate,
 				endDate,
 			};
@@ -92,7 +91,7 @@ const leaderboardController = {
 				uid: player.uid,
 				username: blurUsername(player.username),
 				wagered: player.wagered,
-				weightedWagered: player.weightedWagered, // ✅ API-provided field
+				weightedWagered: player.weightedWagered,
 				favoriteGameId: player.favoriteGameId,
 				favoriteGameTitle: player.favoriteGameTitle,
 				rankLevel: player.rankLevel,
@@ -104,13 +103,14 @@ const leaderboardController = {
 
 			const leaderboardWithDisclosure = {
 				disclosure:
-					"Weighted wager values are directly provided by Roobet’s Affiliate API to prevent leaderboard manipulation. Only Slots and House Games count (dice excluded).",
+					"Leaderboard filtered to Slots & House Games only using official Roobet categories (slots,provably fair).",
 				data: processedData,
 			};
 
 			res.json(leaderboardWithDisclosure);
 		} catch (error) {
 			console.error("Error fetching leaderboard data:", error.message);
+
 			res.status(500).json({
 				error: "Failed to fetch leaderboard data",
 				details: error.response?.data || error.message,
