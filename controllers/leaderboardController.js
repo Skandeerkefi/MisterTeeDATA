@@ -2,121 +2,125 @@ const axios = require("axios");
 
 // Helper function to blur usernames
 function blurUsername(username) {
-	if (!username || username.length <= 2) return "***";
-	const firstChar = username.charAt(0);
-	const lastChar = username.charAt(username.length - 1);
-	const blurredPart = "*".repeat(Math.max(0, username.length - 2));
-	return firstChar + blurredPart + lastChar;
+  if (!username || username.length <= 2) return "***";
+  const firstChar = username.charAt(0);
+  const lastChar = username.charAt(username.length - 1);
+  const blurredPart = "*".repeat(Math.max(0, username.length - 2));
+  return firstChar + blurredPart + lastChar;
+}
+
+// Helper function to get start of day in ISO format
+function getStartOfDay(dateStr) {
+  return new Date(dateStr + "T00:00:00.000Z").toISOString();
+}
+
+// Helper function to get end of day in ISO format
+function getEndOfDay(dateStr) {
+  return new Date(dateStr + "T23:59:59.999Z").toISOString();
 }
 
 const leaderboardController = {
-	getLeaderboard: async (req, res) => {
-		try {
-			const { startDate, endDate } = req.query;
+  // Get full leaderboard with optional query params
+  getLeaderboard: async (req, res) => {
+	try {
+	  const { startDate, endDate } = req.query;
 
-			// ✅ Only allowed categories (from Roobet docs)
-			const params = {
-				userId: process.env.USER_ID,
-				categories: "slots,provably fair", 
-				// ❌ providers removed (not allowed for category filtering)
-				// ❌ dice exclusion removed, already excluded by category
-			};
+	  const params = {
+		userId: process.env.USER_ID,
+	  };
 
-			if (startDate) params.startDate = startDate;
-			if (endDate) params.endDate = endDate;
+	  if (startDate) params.startDate = getStartOfDay(startDate);
+	  if (endDate) params.endDate = getEndOfDay(endDate);
 
-			const response = await axios.get(
-				`${process.env.API_BASE_URL}/affiliate/v2/stats`,
-				{
-					params,
-					headers: {
-						Authorization: `Bearer ${process.env.ROOBET_API_KEY}`,
-					},
-				}
-			);
-
-			const processedData = response.data.map((player) => ({
-				uid: player.uid,
-				username: blurUsername(player.username),
-				wagered: player.wagered,
-				weightedWagered: player.weightedWagered,
-				favoriteGameId: player.favoriteGameId,
-				favoriteGameTitle: player.favoriteGameTitle,
-				rankLevel: player.rankLevel,
-				rankLevelImage: player.rankLevelImage,
-				highestMultiplier: player.highestMultiplier,
-			}));
-
-			processedData.sort((a, b) => b.weightedWagered - a.weightedWagered);
-
-			const leaderboardWithDisclosure = {
-				disclosure:
-					"Leaderboard filtered to Slots & House Games only using official Roobet categories (slots,provably fair). Dice and other excluded games are automatically filtered out based on the category rules.",
-				data: processedData,
-			};
-
-			res.json(leaderboardWithDisclosure);
-		} catch (error) {
-			console.error("Error fetching leaderboard data:", error.message);
-
-			res.status(500).json({
-				error: "Failed to fetch leaderboard data",
-				details: error.response?.data || error.message,
-			});
+	  const response = await axios.get(
+		`${process.env.API_BASE_URL}/affiliate/v2/stats`,
+		{
+		  params,
+		  headers: {
+			Authorization: `Bearer ${process.env.ROOBET_API_KEY}`,
+		  },
 		}
-	},
+	  );
 
-	getLeaderboardByDate: async (req, res) => {
-		try {
-			const { startDate, endDate } = req.params;
+	  const processedData = response.data.map((player) => ({
+		uid: player.uid,
+		username: blurUsername(player.username),
+		wagered: player.wagered,
+		weightedWagered: player.weightedWagered,
+		favoriteGameId: player.favoriteGameId,
+		favoriteGameTitle: player.favoriteGameTitle,
+		rankLevel: player.rankLevel,
+		rankLevelImage: player.rankLevelImage,
+		highestMultiplier: player.highestMultiplier,
+	  }));
 
-			const params = {
-				userId: process.env.USER_ID,
-				categories: "slots,provably fair",
-				startDate,
-				endDate,
-			};
+	  // Sort by weightedWagered descending
+	  processedData.sort((a, b) => b.weightedWagered - a.weightedWagered);
 
-			const response = await axios.get(
-				`${process.env.API_BASE_URL}/affiliate/v2/stats`,
-				{
-					params,
-					headers: {
-						Authorization: `Bearer ${process.env.ROOBET_API_KEY}`,
-					},
-				}
-			);
+	  res.json({
+		disclosure:
+		  "All games are included. Weighted wager values come directly from Roobet’s Affiliate API.",
+		data: processedData,
+	  });
+	} catch (error) {
+	  console.error("Error fetching leaderboard data:", error.message);
+	  res.status(500).json({
+		error: "Failed to fetch leaderboard data",
+		details: error.response?.data || error.message,
+	  });
+	}
+  },
 
-			const processedData = response.data.map((player) => ({
-				uid: player.uid,
-				username: blurUsername(player.username),
-				wagered: player.wagered,
-				weightedWagered: player.weightedWagered,
-				favoriteGameId: player.favoriteGameId,
-				favoriteGameTitle: player.favoriteGameTitle,
-				rankLevel: player.rankLevel,
-				rankLevelImage: player.rankLevelImage,
-				highestMultiplier: player.highestMultiplier,
-			}));
+  // Get leaderboard by date range (via route params)
+  getLeaderboardByDate: async (req, res) => {
+	try {
+	  const { startDate, endDate } = req.params;
 
-			processedData.sort((a, b) => b.weightedWagered - a.weightedWagered);
+	  const params = {
+		userId: process.env.USER_ID,
+	  };
 
-			const leaderboardWithDisclosure = {
-				disclosure:
-					"Leaderboard filtered to Slots & House Games only using official Roobet categories (slots,provably fair).",
-				data: processedData,
-			};
+	  if (startDate) params.startDate = getStartOfDay(startDate);
+	  if (endDate) params.endDate = getEndOfDay(endDate);
 
-			res.json(leaderboardWithDisclosure);
-		} catch (error) {
-			console.error("Error fetching leaderboard data:", error.message);
-
-			res.status(500).json({
-				error: "Failed to fetch leaderboard data",
-				details: error.response?.data || error.message,
-			});
+	  const response = await axios.get(
+		`${process.env.API_BASE_URL}/affiliate/v2/stats`,
+		{
+		  params,
+		  headers: {
+			Authorization: `Bearer ${process.env.ROOBET_API_KEY}`,
+		  },
 		}
-	},
+	  );
+
+	  const processedData = response.data.map((player) => ({
+		uid: player.uid,
+		username: blurUsername(player.username),
+		wagered: player.wagered,
+		weightedWagered: player.weightedWagered,
+		favoriteGameId: player.favoriteGameId,
+		favoriteGameTitle: player.favoriteGameTitle,
+		rankLevel: player.rankLevel,
+		rankLevelImage: player.rankLevelImage,
+		highestMultiplier: player.highestMultiplier,
+	  }));
+
+	  // Sort by weightedWagered descending
+	  processedData.sort((a, b) => b.weightedWagered - a.weightedWagered);
+
+	  res.json({
+		disclosure:
+		  "All games included. Weighted wager values are provided directly by Roobet.",
+		data: processedData,
+	  });
+	} catch (error) {
+	  console.error("Error fetching leaderboard data:", error.message);
+	  res.status(500).json({
+		error: "Failed to fetch leaderboard data",
+		details: error.response?.data || error.message,
+	  });
+	}
+  },
 };
 
 module.exports = leaderboardController;
