@@ -19,107 +19,116 @@ function getEndOfDay(dateStr) {
   return new Date(dateStr + "T23:59:59.999Z").toISOString();
 }
 
+// Filter out dice from house games
+function filterDice(player) {
+  if (!player.favoriteGameId) return true; // include if no game info
+  return !player.favoriteGameId.includes("housegames:dice");
+}
+
 const leaderboardController = {
-  // Get full leaderboard with optional query params
   getLeaderboard: async (req, res) => {
-	try {
-	  const { startDate, endDate } = req.query;
+    try {
+      const { startDate, endDate } = req.query;
 
-	  const params = {
-		userId: process.env.USER_ID,
-	  };
+      const params = {
+        userId: process.env.USER_ID,
+        categories: "slots,provably fair", // Only Slots & Provably Fair
+      };
 
-	  if (startDate) params.startDate = getStartOfDay(startDate);
-	  if (endDate) params.endDate = getEndOfDay(endDate);
+      if (startDate) params.startDate = getStartOfDay(startDate);
+      if (endDate) params.endDate = getEndOfDay(endDate);
 
-	  const response = await axios.get(
-		`${process.env.API_BASE_URL}/affiliate/v2/stats`,
-		{
-		  params,
-		  headers: {
-			Authorization: `Bearer ${process.env.ROOBET_API_KEY}`,
-		  },
-		}
-	  );
+      const response = await axios.get(
+        `${process.env.API_BASE_URL}/affiliate/v2/stats`,
+        {
+          params,
+          headers: {
+            Authorization: `Bearer ${process.env.ROOBET_API_KEY}`,
+          },
+        }
+      );
 
-	  const processedData = response.data.map((player) => ({
-		uid: player.uid,
-		username: blurUsername(player.username),
-		wagered: player.wagered,
-		weightedWagered: player.weightedWagered,
-		favoriteGameId: player.favoriteGameId,
-		favoriteGameTitle: player.favoriteGameTitle,
-		rankLevel: player.rankLevel,
-		rankLevelImage: player.rankLevelImage,
-		highestMultiplier: player.highestMultiplier,
-	  }));
+      const processedData = response.data
+        .filter(filterDice) // remove dice games
+        .map((player) => ({
+          uid: player.uid,
+          username: blurUsername(player.username),
+          wagered: player.wagered,
+          weightedWagered: player.weightedWagered,
+          favoriteGameId: player.favoriteGameId,
+          favoriteGameTitle: player.favoriteGameTitle,
+          rankLevel: player.rankLevel,
+          rankLevelImage: player.rankLevelImage,
+          highestMultiplier: player.highestMultiplier,
+        }));
 
-	  // Sort by weightedWagered descending
-	  processedData.sort((a, b) => b.weightedWagered - a.weightedWagered);
+      // Sort by weightedWagered descending
+      processedData.sort((a, b) => b.weightedWagered - a.weightedWagered);
 
-	  res.json({
-		disclosure:
-		  "All games are included. Weighted wager values come directly from Roobet’s Affiliate API.",
-		data: processedData,
-	  });
-	} catch (error) {
-	  console.error("Error fetching leaderboard data:", error.message);
-	  res.status(500).json({
-		error: "Failed to fetch leaderboard data",
-		details: error.response?.data || error.message,
-	  });
-	}
+      res.json({
+        disclosure:
+          "Only Slots and Provably Fair (house) games are included. Dice games are excluded.",
+        data: processedData,
+      });
+    } catch (error) {
+      console.error("Error fetching leaderboard data:", error.message);
+      res.status(500).json({
+        error: "Failed to fetch leaderboard data",
+        details: error.response?.data || error.message,
+      });
+    }
   },
 
-  // Get leaderboard by date range (via route params)
   getLeaderboardByDate: async (req, res) => {
-	try {
-	  const { startDate, endDate } = req.params;
+    try {
+      const { startDate, endDate } = req.params;
 
-	  const params = {
-		userId: process.env.USER_ID,
-	  };
+      const params = {
+        userId: process.env.USER_ID,
+        categories: "slots,provably fair",
+      };
 
-	  if (startDate) params.startDate = getStartOfDay(startDate);
-	  if (endDate) params.endDate = getEndOfDay(endDate);
+      if (startDate) params.startDate = getStartOfDay(startDate);
+      if (endDate) params.endDate = getEndOfDay(endDate);
 
-	  const response = await axios.get(
-		`${process.env.API_BASE_URL}/affiliate/v2/stats`,
-		{
-		  params,
-		  headers: {
-			Authorization: `Bearer ${process.env.ROOBET_API_KEY}`,
-		  },
-		}
-	  );
+      const response = await axios.get(
+        `${process.env.API_BASE_URL}/affiliate/v2/stats`,
+        {
+          params,
+          headers: {
+            Authorization: `Bearer ${process.env.ROOBET_API_KEY}`,
+          },
+        }
+      );
 
-	  const processedData = response.data.map((player) => ({
-		uid: player.uid,
-		username: blurUsername(player.username),
-		wagered: player.wagered,
-		weightedWagered: player.weightedWagered,
-		favoriteGameId: player.favoriteGameId,
-		favoriteGameTitle: player.favoriteGameTitle,
-		rankLevel: player.rankLevel,
-		rankLevelImage: player.rankLevelImage,
-		highestMultiplier: player.highestMultiplier,
-	  }));
+      const processedData = response.data
+        .filter(filterDice)
+        .map((player) => ({
+          uid: player.uid,
+          username: blurUsername(player.username),
+          wagered: player.wagered,
+          weightedWagered: player.weightedWagered,
+          favoriteGameId: player.favoriteGameId,
+          favoriteGameTitle: player.favoriteGameTitle,
+          rankLevel: player.rankLevel,
+          rankLevelImage: player.rankLevelImage,
+          highestMultiplier: player.highestMultiplier,
+        }));
 
-	  // Sort by weightedWagered descending
-	  processedData.sort((a, b) => b.weightedWagered - a.weightedWagered);
+      processedData.sort((a, b) => b.weightedWagered - a.weightedWagered);
 
-	  res.json({
-		disclosure:
-		  "All games included. Weighted wager values are provided directly by Roobet.",
-		data: processedData,
-	  });
-	} catch (error) {
-	  console.error("Error fetching leaderboard data:", error.message);
-	  res.status(500).json({
-		error: "Failed to fetch leaderboard data",
-		details: error.response?.data || error.message,
-	  });
-	}
+      res.json({
+        disclosure:
+          "Only Slots and Provably Fair (house) games are included. Dice games are excluded.",
+        data: processedData,
+      });
+    } catch (error) {
+      console.error("Error fetching leaderboard data:", error.message);
+      res.status(500).json({
+        error: "Failed to fetch leaderboard data",
+        details: error.response?.data || error.message,
+      });
+    }
   },
 };
 
