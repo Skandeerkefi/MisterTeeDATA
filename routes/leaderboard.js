@@ -1,7 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
-
+let csgoCache = {
+	data: null,
+	timestamp: 0
+};
 let clashCache = null;
 let clashCacheTimestamp = 0;
 const CACHE_TIME = 5 * 60 * 1000; // 5 minutes
