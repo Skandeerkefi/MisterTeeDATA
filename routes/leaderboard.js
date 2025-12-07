@@ -1,6 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
+const { getRoobetAffiliates } = require("../controllers/roobetController.js");
+router.get("/:start_at/:end_at", getRoobetAffiliates);
+
+
 let csgoCache = {
 	data: null,
 	timestamp: 0
