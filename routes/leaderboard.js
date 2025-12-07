@@ -5,6 +5,49 @@ const axios = require("axios");
 let clashCache = null;
 let clashCacheTimestamp = 0;
 const CACHE_TIME = 5 * 60 * 1000; // 5 minutes
+router.get("/csgowin", async (req, res) => {
+	try {
+		const now = Date.now();
+
+		// Cache duration (5 minutes)
+		const CACHE_DURATION = 5 * 60 * 1000;
+
+		// Serve from cache if still valid
+		if (csgoCache.data && now - csgoCache.timestamp < CACHE_DURATION) {
+			return res.json(csgoCache.data);
+		}
+
+		// ============================
+		// API REQUEST (SERVER ONLY)
+		// ============================
+		const code = "mistertee";
+		const url = `https://api.csgowin.com/api/leaderboard/${code}`;
+
+		const response = await fetch(url, {
+			headers: { "x-apikey": "108adfb76a" },
+		});
+
+		if (!response.ok) {
+			const text = await response.text();
+			throw new Error(text || "Failed to fetch CSGOWin leaderboard");
+		}
+
+		const data = await response.json();
+
+		// Save to cache
+		csgoCache = {
+			data,
+			timestamp: now
+		};
+
+		res.json(data);
+
+	} catch (err) {
+		console.error("CSGOWin leaderboard fetch error:", err.message);
+		res.status(500).json({ error: err.message });
+	}
+});
+
 
 router.get("/clash/:sinceDate", async (req, res) => {
   try {
