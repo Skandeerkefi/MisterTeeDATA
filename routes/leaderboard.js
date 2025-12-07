@@ -2,8 +2,10 @@ const express = require("express");
 const router = express.Router();
 const axios = require("axios");
 const { getRoobetAffiliates } = require("../controllers/roobetController.js");
-router.get("/:start_at/:end_at", getRoobetAffiliates);
+const leaderboardController = require("../controllers/leaderboardController.js");
 
+router.get("/", leaderboardController.getLeaderboard); 
+router.get("/:startDate/:endDate", leaderboardController.getLeaderboardByDate);
 
 let csgoCache = {
 	data: null,
