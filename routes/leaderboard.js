@@ -42,7 +42,7 @@ router.get("/csgowin", async (req, res) => {
 // Clash leaderboard
 router.get("/clash/:sinceDate", async (req, res) => {
   try {
-    const sinceDateRaw = req.params.sinceDate || "2023-01-01";
+    const sinceDateRaw = req.params.sinceDate || "2025-12-07";
     const sinceDate = new Date(sinceDateRaw);
 
     if (isNaN(sinceDate.getTime())) {
@@ -67,7 +67,7 @@ router.get("/clash/:sinceDate", async (req, res) => {
     if (data.players) {
       data.players = data.players.map(player => ({
         ...player,
-        wageredGems: player.wagered / 100,
+        wageredGems: player.xp / 100,
         depositsGems: player.deposits / 100,
       }));
     }
