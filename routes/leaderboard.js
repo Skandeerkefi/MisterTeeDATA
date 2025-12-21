@@ -36,7 +36,6 @@ router.get("/csgowin", async (req, res) => {
 });
 
 // Clash leaderboard: my-leaderboards-api (no cache)
-
 router.get("/clash/leaderboards", async (req, res) => {
   try {
     const url = "https://clash.gg/api/affiliates/leaderboards/my-leaderboards-api";
@@ -48,10 +47,13 @@ router.get("/clash/leaderboards", async (req, res) => {
       },
     });
 
-    // Extract only topPlayers and leaderboard period
-    const leaderboard = data.data[0];
+    const leaderboard = data.data.find(lb => lb.status === "LIVE");
+    if (!leaderboard) {
+      return res.status(404).json({ error: "No live leaderboard found" });
+    }
+
     const startDate = new Date(leaderboard.startDate);
-    const endDate = new Date(startDate.getTime() + leaderboard.durationDays * 24*60*60*1000);
+    const endDate = new Date(startDate.getTime() + leaderboard.durationDays * 24 * 60 * 60 * 1000);
 
     res.json({
       startDate,
@@ -61,8 +63,8 @@ router.get("/clash/leaderboards", async (req, res) => {
         name: player.name,
         userId: player.userId,
         xp: Number(player.xp),
-        wagered: player.wagered,
-        deposited: player.deposited,
+        wageredGems: Number(player.xp) / 100,
+        depositsGems: player.deposited / 100,
         avatar: player.avatar,
         earned: player.earned,
       })),
@@ -72,6 +74,7 @@ router.get("/clash/leaderboards", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch Clash leaderboards" });
   }
 });
+
 
 // Clash detailed summary (no cache)
 router.get("/clash/:sinceDate", async (req, res) => {
