@@ -38,23 +38,18 @@ router.get("/csgowin", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// Clash on-site leaderboard (my-leaderboards-api)
 router.get("/clash/leaderboards", async (req, res) => {
   try {
-    if (
-      clashLbCache &&
-      Date.now() - clashLbCacheTimestamp < CACHE_TIME
-    ) {
+    if (clashLbCache && Date.now() - clashLbCacheTimestamp < CACHE_TIME) {
       return res.json(clashLbCache);
     }
 
-    const url =
-      "https://clash.gg/api/affiliates/leaderboards/my-leaderboards-api";
+    const url = "https://clash.gg/api/affiliates/leaderboards/my-leaderboards-api";
 
     const { data } = await axios.get(url, {
       headers: {
         Authorization:
-          "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0eXBlIjoicGFzcyIsInNjb3BlIjoiYWZmaWxpYXRlcyIsInVzZXJJZCI6NzYwNDYwLCJpYXQiOjE3NjUwNTQxOTYsImV4cCI6MTkyMjg0MjE5Nn0.r41izt3dIKfI-O6pwEOspV5n0OPYL-sbh7k2-1KTIuI",
+          "Bearer eyJhbGciOiJIUzI1NiIsInNjb3BlIjoiYWZmaWxpYXRlcyIsInVzZXJJZCI6NzYwNDYwLCJpYXQiOjE3NjUwNTQxOTYsImV4cCI6MTkyMjg0MjE5Nn0.r41izt3dIKfI-O6pwEOspV5n0OPYL-sbh7k2-1KTIuI",
         Cookie: "let-me-in=top-secret-cookie-do-not-share",
         Accept: "application/json",
       },
@@ -69,6 +64,7 @@ router.get("/clash/leaderboards", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch Clash leaderboards" });
   }
 });
+
 
 // Clash leaderboard
 router.get("/clash/:sinceDate", async (req, res) => {
