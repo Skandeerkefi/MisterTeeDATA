@@ -41,7 +41,7 @@ router.get("/clash/leaderboards", async (req, res) => {
     const url = "https://clash.gg/api/affiliates/leaderboards/my-leaderboards-api";
     const { data } = await axios.get(url, {
       headers: {
-        Authorization: "Bearer eyJhbGciOiJIUzI1NiIsInNjb3BlIjoiYWZmaWxpYXRlcyIsInVzZXJJZCI6NzYwNDYwLCJpYXQiOjE3NjUwNTQxOTYsImV4cCI6MTkyMjg0MjE5Nn0.r41izt3dIKfI-O6pwEOspV5n0OPYL-sbh7k2-1KTIuI",
+        Authorization: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0eXBlIjoicGFzcyIsInNjb3BlIjoiYWZmaWxpYXRlcyIsInVzZXJJZCI6NzYwNDYwLCJpYXQiOjE3NjUwNTQxOTYsImV4cCI6MTkyMjg0MjE5Nn0.r41izt3dIKfI-O6pwEOspV5n0OPYL-sbh7k2-1KTIuI",
         Cookie: "let-me-in=top-secret-cookie-do-not-share",
         Accept: "application/json",
       },
