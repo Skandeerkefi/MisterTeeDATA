@@ -67,6 +67,7 @@ router.get("/clash/leaderboards", async (req, res) => {
         depositsGems: player.deposited / 100,
         avatar: player.avatar,
         earned: player.earned,
+        wagered: player.wagered,
       })),
     });
   } catch (err) {
