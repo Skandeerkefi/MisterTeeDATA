@@ -76,10 +76,9 @@ router.get("/clash/leaderboards", async (req, res) => {
 });
 
 
-// Clash detailed summary (no cache)
 router.get("/clash/:sinceDate", async (req, res) => {
   try {
-    const sinceDateRaw = req.params.sinceDate || "2025-12-07";
+    const sinceDateRaw = req.params.sinceDate || "2025-12-22";
     const sinceDate = new Date(sinceDateRaw);
 
     if (isNaN(sinceDate.getTime())) {
@@ -101,8 +100,8 @@ router.get("/clash/:sinceDate", async (req, res) => {
     if (data.players) {
       data.players = data.players.map((player) => ({
         ...player,
-        wageredGems: player.xp / 100,
-        depositsGems: player.deposits / 100,
+        wageredGems: player.wagered / 100,
+        depositedGems: player.deposited / 100,
       }));
     }
 
@@ -112,6 +111,7 @@ router.get("/clash/:sinceDate", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // --- DYNAMIC ROUTES LAST ---
 router.get("/:startDate/:endDate", leaderboardController.getLeaderboardByDate);
