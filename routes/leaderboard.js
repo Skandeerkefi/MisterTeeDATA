@@ -97,20 +97,24 @@ router.get("/clash/:sinceDate", async (req, res) => {
       },
     });
 
-    if (data.players) {
-      data.players = data.players.map((player) => ({
+    // Map directly on the array returned
+    if (Array.isArray(data)) {
+      const result = data.map((player) => ({
         ...player,
         wageredGems: player.wagered / 100,
         depositedGems: player.deposited / 100,
       }));
+
+      return res.json(result);
     }
 
-    res.json(data);
+    res.status(500).json({ error: "Unexpected API response format" });
   } catch (err) {
-    console.error("Clash leaderboard fetch error:", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("Clash leaderboard fetch error:", err.response?.data || err.message);
+    res.status(500).json({ error: err.response?.data || err.message });
   }
 });
+
 
 
 // --- DYNAMIC ROUTES LAST ---
