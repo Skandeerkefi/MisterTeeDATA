@@ -90,8 +90,9 @@ router.get("/clash/:sinceDate", async (req, res) => {
 
     const { data } = await axios.get(url, {
       headers: {
-        Authorization: `Bearer ${process.env.CLASH_API_TOKEN}`, // JWT stored securely
-        Cookie: "let-me-in=top-secret-cookie-do-not-share", // same as your working cURL
+        Authorization:
+          "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0eXBlIjoicGFzcyIsInNjb3BlIjoiYWZmaWxpYXRlcyIsInVzZXJJZCI6NzYwNDYwLCJpYXQiOjE3NjUwNTQxOTYsImV4cCI6MTkyMjg0MjE5Nn0.r41izt3dIKfI-O6pwEOspV5n0OPYL-sbh7k2-1KTIuI",
+        Cookie: "let-me-in=top-secret-cookie-do-not-share", // same as cURL
         Accept: "application/json",
       },
     });
@@ -107,7 +108,7 @@ router.get("/clash/:sinceDate", async (req, res) => {
     }
 
     res.status(500).json({ error: "Unexpected API response format" });
-  } catch (err: any) {
+  } catch (err) {
     console.error(
       "Clash leaderboard fetch error:",
       err.response?.data || err.message
@@ -115,6 +116,7 @@ router.get("/clash/:sinceDate", async (req, res) => {
     res.status(500).json({ error: err.response?.data || err.message });
   }
 });
+
 
 
 
