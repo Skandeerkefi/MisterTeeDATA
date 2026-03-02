@@ -121,6 +121,34 @@ router.get("/clash/:sinceDate", async (req, res) => {
 
 
 
+// WINOVO leaderboard
+const WINOVO_API_KEY = "9b2e7c4a1d8f3b6c0a5e9d2f7c1b4a8e";
+const WINOVO_BASE = "https://winovo.io/api/creator";
+
+router.get("/winovo", async (req, res) => {
+  try {
+    const { data } = await axios.get(`${WINOVO_BASE}/users`, {
+      headers: { "x-creator-auth": WINOVO_API_KEY },
+    });
+    res.json(data);
+  } catch (err) {
+    console.error("WINOVO leaderboard fetch error:", err.response?.data || err.message);
+    res.status(500).json({ error: err.response?.data || "Failed to fetch WINOVO leaderboard" });
+  }
+});
+
+router.post("/winovo/clear", async (req, res) => {
+  try {
+    const { data } = await axios.post(`${WINOVO_BASE}/clear`, null, {
+      headers: { "x-creator-auth": WINOVO_API_KEY },
+    });
+    res.json(data);
+  } catch (err) {
+    console.error("WINOVO clear error:", err.response?.data || err.message);
+    res.status(500).json({ error: err.response?.data || "Failed to clear WINOVO leaderboard" });
+  }
+});
+
 // --- DYNAMIC ROUTES LAST ---
 router.get("/:startDate/:endDate", leaderboardController.getLeaderboardByDate);
 router.get("/", leaderboardController.getLeaderboard);
