@@ -167,35 +167,48 @@ router.post("/winovo/clear", async (req, res) => {
 });
 
 // Rainbet affiliates leaderboard
+const dayjs = require("dayjs");
+
+// Rainbet affiliates leaderboard
 router.get("/rainbet", async (req, res) => {
   try {
-    const { start_at, end_at, key } = req.query;
+    let { start_at, end_at } = req.query;
 
     if (!start_at || !end_at) {
-      return res.status(400).json({ error: "Missing required params: start_at, end_at" });
+      return res.status(400).json({
+        error: "Missing required params: start_at, end_at",
+      });
     }
 
-    const apiKey = key || process.env.RAINBET_API_KEY;
-    if (!apiKey) {
-      return res.status(400).json({ error: "Missing Rainbet API key (provide ?key= or set RAINBET_API_KEY)" });
-    }
+    // ✅ Rainbet expects YYYY-MM-DD
+    start_at = dayjs(start_at).format("YYYY-MM-DD");
+    end_at = dayjs(end_at).format("YYYY-MM-DD");
 
-    const url = "https://services.rainbet.com/v1/external/affiliates";
+    const url =
+      "https://services.rainbet.com/v1/external/affiliates";
 
     const { data } = await axios.get(url, {
       params: {
         start_at,
         end_at,
-        key: apiKey,
+        key: process.env.RAINBET_API_KEY,
       },
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+      },
       timeout: 10000,
     });
 
     res.json(data);
   } catch (err) {
-    console.error("Rainbet leaderboard fetch error:", err.response?.status, err.response?.data || err.message);
-    res.status(err.response?.status || 500).json({ error: err.response?.data || "Failed to fetch Rainbet leaderboard" });
+    console.error(
+      "Rainbet leaderboard fetch error:",
+      err.response?.data || err.message
+    );
+
+    res.status(500).json({
+      error: err.response?.data || "Rainbet fetch failed",
+    });
   }
 });
 
