@@ -166,51 +166,39 @@ router.post("/winovo/clear", async (req, res) => {
   }
 });
 
-// Rainbet affiliates leaderboard
-const dayjs = require("dayjs");
-
-// Rainbet affiliates leaderboard
+// --- Rainbet bi-weekly leaderboard ---
 router.get("/rainbet", async (req, res) => {
   try {
-    let { start_at, end_at } = req.query;
+    // Bi-weekly period starting 4th of current month
+    const now = dayjs();
+    let start = dayjs(`${now.year()}-${now.month() + 1}-04`);
+    let end = start.add(14, "day"); // 2 weeks later
 
-    if (!start_at || !end_at) {
-      return res.status(400).json({
-        error: "Missing required params: start_at, end_at",
-      });
-    }
-
-    // ✅ Rainbet expects YYYY-MM-DD
-    start_at = dayjs(start_at).format("YYYY-MM-DD");
-    end_at = dayjs(end_at).format("YYYY-MM-DD");
-
-    const url =
-      "https://services.rainbet.com/v1/external/affiliates";
+    const url = "https://services.rainbet.com/v1/external/affiliates";
 
     const { data } = await axios.get(url, {
       params: {
-        start_at,
-        end_at,
+        start_at: start.format("YYYY-MM-DD"),
+        end_at: end.format("YYYY-MM-DD"),
         key: process.env.RAINBET_API_KEY,
       },
-      headers: {
-        Accept: "application/json",
-      },
+      headers: { Accept: "application/json" },
       timeout: 10000,
     });
 
-    res.json(data);
+    // Normalize the data to a consistent array
+    const affiliates = Array.isArray(data.affiliates) ? data.affiliates : [];
+
+    res.json({ affiliates, start: start.toISOString(), end: end.toISOString() });
   } catch (err) {
     console.error(
-      "Rainbet leaderboard fetch error:",
+      "Rainbet bi-weekly fetch error:",
       err.response?.data || err.message
     );
-
-    res.status(500).json({
-      error: err.response?.data || "Rainbet fetch failed",
-    });
+    res.status(500).json({ error: err.response?.data || "Failed to fetch Rainbet leaderboard" });
   }
 });
+
 
 // --- DYNAMIC ROUTES LAST ---
 router.get("/:startDate/:endDate", leaderboardController.getLeaderboardByDate);
