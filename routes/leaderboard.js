@@ -121,31 +121,48 @@ router.get("/clash/:sinceDate", async (req, res) => {
 
 
 
-// WINOVO leaderboard
-const WINOVO_API_KEY = "9b2e7c4a1d8f3b6c0a5e9d2f7c1b4a8e";
-const WINOVO_BASE = "https://winovo.io/api/creator";
+// WINOVO leaderboard (use env when available)
+const WINOVO_API_KEY = process.env.WINOVO_API_KEY || "9b2e7c4a1d8f3b6c0a5e9d2f7c1b4a8e";
+const WINOVO_BASE = process.env.WINOVO_BASE || "https://winovo.io/api/creator";
 
 router.get("/winovo", async (req, res) => {
   try {
+    if (!WINOVO_API_KEY) {
+      return res.status(500).json({ error: "WINOVO API key not configured" });
+    }
+
     const { data } = await axios.get(`${WINOVO_BASE}/users`, {
-      headers: { "x-creator-auth": WINOVO_API_KEY },
+      headers: { "x-creator-auth": WINOVO_API_KEY, Accept: "application/json" },
+      timeout: 10000,
     });
+
     res.json(data);
   } catch (err) {
-    console.error("WINOVO leaderboard fetch error:", err.response?.data || err.message);
-    res.status(500).json({ error: err.response?.data || "Failed to fetch WINOVO leaderboard" });
+    console.error(
+      "WINOVO leaderboard fetch error:",
+      err.response?.status,
+      err.response?.data || err.message
+    );
+    res.status(err.response?.status || 500).json({ error: err.response?.data || "Failed to fetch WINOVO leaderboard" });
   }
 });
 
 router.post("/winovo/clear", async (req, res) => {
   try {
-    const { data } = await axios.post(`${WINOVO_BASE}/clear`, null, {
-      headers: { "x-creator-auth": WINOVO_API_KEY },
-    });
+    if (!WINOVO_API_KEY) {
+      return res.status(500).json({ error: "WINOVO API key not configured" });
+    }
+
+    const { data } = await axios.post(
+      `${WINOVO_BASE}/clear`,
+      null,
+      { headers: { "x-creator-auth": WINOVO_API_KEY, Accept: "application/json" }, timeout: 10000 }
+    );
+
     res.json(data);
   } catch (err) {
-    console.error("WINOVO clear error:", err.response?.data || err.message);
-    res.status(500).json({ error: err.response?.data || "Failed to clear WINOVO leaderboard" });
+    console.error("WINOVO clear error:", err.response?.status, err.response?.data || err.message);
+    res.status(err.response?.status || 500).json({ error: err.response?.data || "Failed to clear WINOVO leaderboard" });
   }
 });
 
