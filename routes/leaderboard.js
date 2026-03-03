@@ -166,6 +166,39 @@ router.post("/winovo/clear", async (req, res) => {
   }
 });
 
+// Rainbet affiliates leaderboard
+router.get("/rainbet", async (req, res) => {
+  try {
+    const { start_at, end_at, key } = req.query;
+
+    if (!start_at || !end_at) {
+      return res.status(400).json({ error: "Missing required params: start_at, end_at" });
+    }
+
+    const apiKey = key || process.env.RAINBET_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({ error: "Missing Rainbet API key (provide ?key= or set RAINBET_API_KEY)" });
+    }
+
+    const url = "https://services.rainbet.com/v1/external/affiliates";
+
+    const { data } = await axios.get(url, {
+      params: {
+        start_at,
+        end_at,
+        key: apiKey,
+      },
+      headers: { Accept: "application/json" },
+      timeout: 10000,
+    });
+
+    res.json(data);
+  } catch (err) {
+    console.error("Rainbet leaderboard fetch error:", err.response?.status, err.response?.data || err.message);
+    res.status(err.response?.status || 500).json({ error: err.response?.data || "Failed to fetch Rainbet leaderboard" });
+  }
+});
+
 // --- DYNAMIC ROUTES LAST ---
 router.get("/:startDate/:endDate", leaderboardController.getLeaderboardByDate);
 router.get("/", leaderboardController.getLeaderboard);
