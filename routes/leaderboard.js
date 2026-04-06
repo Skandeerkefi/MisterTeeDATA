@@ -201,12 +201,18 @@ router.post("/diamonds", async (req, res) => {
 
     res.json(data);
   } catch (err) {
+    const upstreamError = err.response?.data;
+    const errorMessage =
+      typeof upstreamError === "string"
+        ? upstreamError
+        : upstreamError?.error || upstreamError?.message || "Failed to fetch CSGO Diamonds leaderboard";
+
     console.error(
       "CSGO Diamonds leaderboard fetch error:",
       err.response?.data || err.message
     );
     res.status(err.response?.status || 500).json({
-      error: err.response?.data || "Failed to fetch CSGO Diamonds leaderboard",
+      error: errorMessage,
     });
   }
 });
