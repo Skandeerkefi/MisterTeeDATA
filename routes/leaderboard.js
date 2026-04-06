@@ -166,6 +166,51 @@ router.post("/winovo/clear", async (req, res) => {
   }
 });
 
+// --- CSGODiamonds referrals leaderboard ---
+router.post("/diamonds", async (req, res) => {
+  try {
+    const key = req.body.key || process.env.CSGO_DIAMONDS_API_KEY;
+    const type = "WAGER";
+    const before = Number(req.body.before);
+    const after = Number(req.body.after);
+
+    if (!key) {
+      return res.status(400).json({ error: "Missing CSGO Diamonds API key" });
+    }
+
+    if (!Number.isFinite(before) || !Number.isFinite(after)) {
+      return res.status(400).json({ error: "Missing or invalid before/after timestamps" });
+    }
+
+    const { data } = await axios.post(
+      "https://api.csgodiamonds.com/affiliate/leaderboard/referrals",
+      {
+        key,
+        type,
+        before,
+        after,
+      },
+      {
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        timeout: 10000,
+      }
+    );
+
+    res.json(data);
+  } catch (err) {
+    console.error(
+      "CSGO Diamonds leaderboard fetch error:",
+      err.response?.data || err.message
+    );
+    res.status(err.response?.status || 500).json({
+      error: err.response?.data || "Failed to fetch CSGO Diamonds leaderboard",
+    });
+  }
+});
+
 // --- Rainbet bi-weekly leaderboard ---
 router.get("/rainbet", async (req, res) => {
   try {
