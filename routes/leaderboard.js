@@ -217,6 +217,67 @@ router.post("/diamonds", async (req, res) => {
   }
 });
 
+// --- CSBattle affiliates leaderboard ---
+const CSBATTLE_AFFILIATE_ID =
+  process.env.CSBATTLE_AFFILIATE_ID || "cd5a7170-1742-4ddb-95fb-985597beb99f";
+const CSBATTLE_FROM_DEFAULT = "2025-04-10 00:00:00";
+const CSBATTLE_TO_DEFAULT = "2030-04-19 23:59:59";
+
+let csbattleCache = { data: null, key: "", timestamp: 0 };
+
+router.get("/csbattle", async (req, res) => {
+  try {
+    const from = (req.query.from && String(req.query.from)) || CSBATTLE_FROM_DEFAULT;
+    const to = (req.query.to && String(req.query.to)) || CSBATTLE_TO_DEFAULT;
+    const cacheKey = `${from}|${to}`;
+    const now = Date.now();
+
+    if (
+      csbattleCache.data &&
+      csbattleCache.key === cacheKey &&
+      now - csbattleCache.timestamp < CACHE_TIME
+    ) {
+      return res.json(csbattleCache.data);
+    }
+
+    const url = `https://api.csbattle.com/leaderboards/affiliates/${CSBATTLE_AFFILIATE_ID}`;
+    const { data } = await axios.get(url, {
+      params: { from, to },
+      headers: { Accept: "application/json" },
+      timeout: 15000,
+    });
+
+    const rawUsers = Array.isArray(data?.users) ? data.users : [];
+    const payload = {
+      users: rawUsers.map((u, idx) => ({
+        uuid: u.uuid,
+        username: u.username ?? "—",
+        avatar: u.avatar ?? null,
+        wager: Number(u.wager) || 0,
+        rank: Number.isFinite(Number(u.rank)) ? Number(u.rank) : idx + 1,
+      })),
+      period: { from, to },
+    };
+
+    csbattleCache = { data: payload, key: cacheKey, timestamp: now };
+    res.json(payload);
+  } catch (err) {
+    console.error(
+      "CSBattle affiliates leaderboard fetch error:",
+      err.response?.data || err.message
+    );
+    const upstream = err.response?.data;
+    let errorMessage = "Failed to fetch CSBattle leaderboard";
+    if (typeof upstream === "string") errorMessage = upstream;
+    else if (upstream && typeof upstream === "object" && upstream.message) {
+      errorMessage = String(upstream.message);
+    } else if (err.message) {
+      errorMessage = err.message;
+    }
+    res.status(err.response?.status || 500).json({ error: errorMessage });
+  }
+});
+
 // --- Rainbet bi-weekly leaderboard ---
 router.get("/rainbet", async (req, res) => {
   try {
