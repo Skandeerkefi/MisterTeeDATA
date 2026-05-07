@@ -4,7 +4,22 @@ const axios = require("axios");
 const { getRoobetAffiliates } = require("../controllers/roobetController.js");
 const leaderboardController = require("../controllers/leaderboardController.js");
 const dayjs = require("dayjs");
+const {
+  getLeaderboardDisplayConfig,
+  CSBATTLE_FROM_FALLBACK,
+  CSBATTLE_TO_FALLBACK,
+} = require("../services/leaderboardDisplayConfigService");
 // --- SPECIFIC ROUTES FIRST ---
+
+router.get("/display-settings", async (req, res) => {
+  try {
+    const config = await getLeaderboardDisplayConfig();
+    res.json(config);
+  } catch (err) {
+    console.error("Leaderboard display-settings error:", err);
+    res.status(500).json({ error: "Failed to load display settings" });
+  }
+});
 
 // CSGOWin leaderboard (still cached)
 let csgoCache = { data: null, timestamp: 0 };
@@ -220,15 +235,20 @@ router.post("/diamonds", async (req, res) => {
 // --- CSBattle affiliates leaderboard ---
 const CSBATTLE_AFFILIATE_ID =
   process.env.CSBATTLE_AFFILIATE_ID || "cd5a7170-1742-4ddb-95fb-985597beb99f";
-const CSBATTLE_FROM_DEFAULT = "2025-04-10 00:00:00";
-const CSBATTLE_TO_DEFAULT = "2030-04-19 23:59:59";
 
 let csbattleCache = { data: null, key: "", timestamp: 0 };
 
+router.clearCsbattleCache = function clearCsbattleCache() {
+  csbattleCache = { data: null, key: "", timestamp: 0 };
+};
+
 router.get("/csbattle", async (req, res) => {
   try {
-    const from = (req.query.from && String(req.query.from)) || CSBATTLE_FROM_DEFAULT;
-    const to = (req.query.to && String(req.query.to)) || CSBATTLE_TO_DEFAULT;
+    const saved = await getLeaderboardDisplayConfig();
+    const from =
+      (req.query.from && String(req.query.from)) || saved.csbattle.from || CSBATTLE_FROM_FALLBACK;
+    const to =
+      (req.query.to && String(req.query.to)) || saved.csbattle.to || CSBATTLE_TO_FALLBACK;
     const cacheKey = `${from}|${to}`;
     const now = Date.now();
 

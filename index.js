@@ -190,8 +190,31 @@ app.listen(PORT, () =>
 	console.log(`✅ Server is running at http://localhost:${PORT}`)
 );
 const leaderboardRoutes = require("./routes/leaderboard");
+const {
+	upsertLeaderboardDisplayConfig,
+} = require("./services/leaderboardDisplayConfigService");
 // Routes
 app.use("/api/leaderboard", leaderboardRoutes);
+
+app.put(
+	"/api/admin/leaderboard-display-settings",
+	verifyToken,
+	isAdmin,
+	async (req, res) => {
+		try {
+			const config = await upsertLeaderboardDisplayConfig(req.body);
+			if (typeof leaderboardRoutes.clearCsbattleCache === "function") {
+				leaderboardRoutes.clearCsbattleCache();
+			}
+			res.json(config);
+		} catch (err) {
+			console.error("leaderboard-display-settings save:", err);
+			res.status(500).json({
+				error: "Failed to save leaderboard display settings",
+			});
+		}
+	}
+);
 
 // Basic health check endpoint
 app.get("/health", (req, res) => {
