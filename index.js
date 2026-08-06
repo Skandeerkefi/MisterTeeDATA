@@ -206,6 +206,9 @@ app.put(
 			if (typeof leaderboardRoutes.clearCsbattleCache === "function") {
 				leaderboardRoutes.clearCsbattleCache();
 			}
+			if (typeof leaderboardRoutes.clearJuiceCache === "function") {
+				leaderboardRoutes.clearJuiceCache();
+			}
 			res.json(config);
 		} catch (err) {
 			console.error("leaderboard-display-settings save:", err);

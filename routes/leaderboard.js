@@ -237,9 +237,14 @@ const CSBATTLE_AFFILIATE_ID =
   process.env.CSBATTLE_AFFILIATE_ID || "cd5a7170-1742-4ddb-95fb-985597beb99f";
 
 let csbattleCache = { data: null, key: "", timestamp: 0 };
+let juiceCache = { data: null, key: "", timestamp: 0 };
 
 router.clearCsbattleCache = function clearCsbattleCache() {
   csbattleCache = { data: null, key: "", timestamp: 0 };
+};
+
+router.clearJuiceCache = function clearJuiceCache() {
+  juiceCache = { data: null, key: "", timestamp: 0 };
 };
 
 router.get("/csbattle", async (req, res) => {
@@ -294,6 +299,87 @@ router.get("/csbattle", async (req, res) => {
     } else if (err.message) {
       errorMessage = err.message;
     }
+    res.status(err.response?.status || 500).json({ error: errorMessage });
+  }
+});
+
+const JUICE_API_KEY = process.env.JUICE_API_KEY || process.env.JUICE_AFFILIATE_API_KEY;
+const JUICE_BASE_URL = "https://api.juice.gg/v1";
+const JUICE_CACHE_TIME = 10 * 60 * 1000;
+
+function toUtcIsoStart(dateStr) {
+  return new Date(`${dateStr}T00:00:00.000Z`).toISOString();
+}
+
+function toUtcIsoEnd(dateStr) {
+  return new Date(`${dateStr}T23:59:59.999Z`).toISOString();
+}
+
+router.get("/juice", async (req, res) => {
+  try {
+    if (!JUICE_API_KEY) {
+      return res.status(500).json({ error: "JUICE API key not configured" });
+    }
+
+    const saved = await getLeaderboardDisplayConfig();
+    const startDate = (req.query.start_date && String(req.query.start_date)) || saved.juice.startDate;
+    const endDate = (req.query.end_date && String(req.query.end_date)) || saved.juice.endDate;
+    const type = (req.query.type && String(req.query.type)) || "PLAY_AMOUNT";
+    const cacheKey = `${startDate}|${endDate}|${type}`;
+    const now = Date.now();
+
+    if (
+      juiceCache.data &&
+      juiceCache.key === cacheKey &&
+      now - juiceCache.timestamp < JUICE_CACHE_TIME
+    ) {
+      return res.json(juiceCache.data);
+    }
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: "Missing Juice leaderboard date range" });
+    }
+
+    const { data } = await axios.get(`${JUICE_BASE_URL}/affiliates/play`, {
+      params: {
+        start_date: toUtcIsoStart(startDate),
+        end_date: toUtcIsoEnd(endDate),
+        type,
+      },
+      headers: {
+        "X-API-Key": JUICE_API_KEY,
+        Accept: "application/json",
+      },
+      timeout: 15000,
+    });
+
+    const rows = Array.isArray(data?.data) ? data.data : [];
+    const users = rows
+      .map((row, index) => ({
+        id: row.id ?? index,
+        username: row.username ?? "—",
+        avatar: row.avatar ?? null,
+        purchases: Number(row.purchases) || 0,
+        weighted_play_amount: Number(row.weighted_play_amount) || 0,
+        raw_play_amount: Number(row.raw_play_amount) || 0,
+      }))
+      .sort((a, b) => b.weighted_play_amount - a.weighted_play_amount)
+      .map((user, index) => ({ ...user, rank: index + 1 }));
+
+    const payload = {
+      users,
+      period: { startDate, endDate, type },
+    };
+
+    juiceCache = { data: payload, key: cacheKey, timestamp: now };
+    res.json(payload);
+  } catch (err) {
+    console.error("Juice leaderboard fetch error:", err.response?.data || err.message);
+    const upstream = err.response?.data;
+    const errorMessage =
+      typeof upstream === "string"
+        ? upstream
+        : upstream?.error || upstream?.message || "Failed to fetch Juice leaderboard";
     res.status(err.response?.status || 500).json({ error: errorMessage });
   }
 });

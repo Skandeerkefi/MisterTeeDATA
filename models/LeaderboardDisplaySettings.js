@@ -19,6 +19,11 @@ const leaderboardDisplaySettingsSchema = new mongoose.Schema(
 			to: { type: String, default: "" },
 			prizeByRank: prizeMapSchema,
 		},
+		juice: {
+			startDate: { type: String, default: "" },
+			endDate: { type: String, default: "" },
+			prizeByRank: prizeMapSchema,
+		},
 	},
 	{ timestamps: true }
 );
