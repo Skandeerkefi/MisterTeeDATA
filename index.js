@@ -3,7 +3,6 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
 const cron = require("node-cron");
 const { drawWinnerAuto } = require("./controllers/gwsController"); // You create this
 dotenv.config();
@@ -51,6 +50,7 @@ app.use((req, res, next) => {
 // CORS Middleware
 const allowedOrigins = [
 	"http://localhost:5173",
+	"http://127.0.0.1:5173",
 	"https://mister-tee.vercel.app",
 	"misterteedata.railway.internal",
 	"https://mister-tee.vercel.app/Leaderboards",
@@ -92,25 +92,6 @@ const { verifyToken, isAdmin } = require("./middleware/auth");
 // Routes
 const slotCallRoutes = require("./routes/slotCallRoutes");
 
-// Auth Routes
-app.post("/api/auth/register", async (req, res) => {
-	const { kickUsername, rainbetUsername, password, confirmPassword } = req.body;
-
-	if (password !== confirmPassword) {
-		return res.status(400).json({ message: "Passwords do not match." });
-	}
-
-	const existing = await User.findOne({ kickUsername });
-	const existingRainbet = await User.findOne({ rainbetUsername });
-	if (existing || existingRainbet)
-		return res.status(400).json({ message: "Username already exists." });
-
-	const hashed = await bcrypt.hash(password, 10);
-	const newUser = new User({ kickUsername, rainbetUsername, password: hashed });
-	await newUser.save();
-
-	res.status(201).json({ message: "User registered." });
-});
 // Packdraw leaderboard proxy
 app.get("/api/packdraw", async (req, res) => {
 	try {
@@ -136,25 +117,10 @@ app.get("/api/packdraw", async (req, res) => {
 });
 
 
-app.post("/api/auth/login", async (req, res) => {
-	const { kickUsername, password } = req.body;
-
-	const user = await User.findOne({ kickUsername });
+app.get("/api/auth/me", verifyToken, async (req, res) => {
+	const user = await User.findById(req.user.id).select("-password");
 	if (!user) return res.status(404).json({ message: "User not found." });
-
-	const match = await bcrypt.compare(password, user.password);
-	if (!match) return res.status(401).json({ message: "Invalid credentials." });
-
-	const token = jwt.sign(
-		{ id: user._id, role: user.role, kickUsername: user.kickUsername },
-		process.env.JWT_SECRET,
-		{ expiresIn: "7d" }
-	);
-
-	res.json({
-		token,
-		user: { id: user._id, kickUsername: user.kickUsername, role: user.role },
-	});
+	res.json({ user });
 });
 
 // Slot Call Routes
@@ -190,11 +156,13 @@ app.listen(PORT, () =>
 	console.log(`✅ Server is running at http://localhost:${PORT}`)
 );
 const leaderboardRoutes = require("./routes/leaderboard");
-const {
-	upsertLeaderboardDisplayConfig,
-} = require("./services/leaderboardDisplayConfigService");
+const { upsertLeaderboardDisplayConfig } = require("./services/leaderboardDisplayConfigService");
 // Routes
 app.use("/api/leaderboard", leaderboardRoutes);
+
+// ========== NEW COMMUNITY HUB ROUTES ==========
+app.use("/api/points", require("./routes/pointsRoutes.js")); app.use("/api/games", require("./routes/gamesRoutes.js")); app.use("/api/shop", require("./routes/shopRoutes.js")); app.use("/api/admin", require("./routes/adminRoutes.js")); app.use("/api/points-leaderboard", require("./routes/leaderboardRoutes.js")); app.use("/api/rewards", require("./routes/rewardsRoutes.js")); app.use("/api/socials", require("./routes/socialsRoutes.js")); app.use("/api/auth", require("./routes/oauthRoutes.js"));
+app.use("/api/oauth", require("./routes/oauthRoutes.js"));
 
 app.put(
 	"/api/admin/leaderboard-display-settings",

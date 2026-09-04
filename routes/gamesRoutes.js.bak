@@ -1,0 +1,130 @@
+const express = require("express");
+const router = express.Router();
+const { verifyToken } = require("../middleware/auth");
+const gameService = require("../services/gameService");
+const { GameRound, GAME_TYPES, GAME_OUTCOMES } = require("../models/GameRound");
+const { GameConfig } = require("../models/GameConfig");
+
+router.get("/config/:gameType", verifyToken, async (req, res) => {
+  try {
+    const config = await gameService.getGameConfig(req.params.gameType);
+    res.json({ minWager: config.minWager, maxWager: config.maxWager, dailyLossCap: config.dailyLossCap, active: config.active });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+router.post("/coinflip", verifyToken, async (req, res) => {
+  try {
+    const { wager, chosenSide } = req.body;
+    if (!wager || !chosenSide) return res.status(400).json({ error: "wager and chosenSide required" });
+    const result = await gameService.playCoinFlip(req.user.id, parseInt(wager), chosenSide);
+    res.json({ success: true, ...result });
+  } catch (error) { res.status(400).json({ error: error.message }); }
+});
+
+// Start a new mines game with configurable grid size
+router.post("/mines/start", verifyToken, async (req, res) => {
+  try {
+    const { wager, mines = 3, gridSize = 5 } = req.body;
+    if (!wager) return res.status(400).json({ error: "wager required" });
+    
+    // Validate grid size (3-7)
+    const validGridSize = Math.min(Math.max(parseInt(gridSize), 3), 7);
+    const totalTiles = validGridSize * validGridSize;
+    const validMines = Math.min(Math.max(parseInt(mines), 1), totalTiles - 1);
+    
+    const result = await gameService.startMines(req.user.id, parseInt(wager), validMines, validGridSize);
+    res.json({ success: true, ...result, gameRoundId: result.gameRound._id });
+  } catch (error) { res.status(400).json({ error: error.message }); }
+});
+
+// Reveal a cell in an existing mines game
+router.post("/mines/reveal", verifyToken, async (req, res) => {
+  try {
+    const { gameRoundId, cell } = req.body;
+    if (!gameRoundId || cell === undefined) return res.status(400).json({ error: "gameRoundId and cell required" });
+    
+    const result = await gameService.revealMines(req.user.id, gameRoundId, parseInt(cell));
+    
+    // Check if hit a mine (outcome is LOSS)
+    const hitMine = result.hitMine !== undefined;
+    res.json({ 
+      success: true, 
+      ...result, 
+      hitMine,
+      outcome: hitMine ? "loss" : "win"
+    });
+  } catch (error) { res.status(400).json({ error: error.message }); }
+});
+
+// Cash out from an existing mines game
+router.post("/mines/cashout", verifyToken, async (req, res) => {
+  try {
+    const { gameRoundId } = req.body;
+    if (!gameRoundId) return res.status(400).json({ error: "gameRoundId required" });
+    const result = await gameService.cashOutMines(req.user.id, gameRoundId);
+    res.json({ success: true, ...result, outcome: "win" });
+  } catch (error) { res.status(400).json({ error: error.message }); }
+});
+
+// Get mines game details for verification
+router.get("/mines/:gameRoundId", verifyToken, async (req, res) => {
+  try {
+    const gameRound = await GameRound.findOne({ _id: req.params.gameRoundId, user: req.user.id, game: GAME_TYPES.MINES });
+    if (!gameRound) return res.status(404).json({ error: "Game not found" });
+    
+    res.json({
+      gameRoundId: gameRound._id,
+      wager: gameRound.wager,
+      gridSize: gameRound.meta?.gridSize || 5,
+      mines: gameRound.meta?.bombCount || 3,
+      revealedCells: gameRound.meta?.revealedCells || [],
+      multiplier: gameRound.multiplier,
+      outcome: gameRound.outcome,
+      payout: gameRound.payout,
+      // Only reveal mines if game is over
+      minePositions: gameRound.outcome !== GAME_OUTCOMES.PENDING ? (gameRound.meta?.bombPositions || []) : undefined
+    });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Legacy endpoint - keeps backward compatibility for simple single-click games
+router.post("/mines", verifyToken, async (req, res) => {
+  try {
+    const { wager, mines = 3, cell, gridSize = 5 } = req.body;
+    if (!wager) return res.status(400).json({ error: "wager required" });
+    
+    const validGridSize = Math.min(Math.max(parseInt(gridSize), 3), 7);
+    const totalTiles = validGridSize * validGridSize;
+
+    // If no cell provided, start a new game
+    if (cell === undefined) {
+      const result = await gameService.startMines(req.user.id, parseInt(wager), parseInt(mines), validGridSize);
+      res.json({ success: true, ...result, gameRoundId: result.gameRound._id });
+      return;
+    }
+
+    // With cell provided, create new game and reveal that cell in one go
+    const bombCount = Math.min(Math.max(parseInt(mines), 1), totalTiles - 1);
+    const { gameRound } = await gameService.placeWager(req.user.id, GAME_TYPES.MINES, parseInt(wager));
+    const bombPositions = new Set();
+    while (bombPositions.size < bombCount) bombPositions.add(Math.floor(Math.random() * totalTiles));
+    gameRound.meta = { wagerTxId: gameRound.meta.wagerTxId, bombCount, bombPositions: [...bombPositions], revealedCells: [], gridSize: validGridSize };
+    await gameRound.save();
+
+    const bombPosArray = [...bombPositions];
+    if (bombPosArray.includes(cell)) {
+      const r = await gameService.resolveLoss(gameRound._id, { bombCount, bombPositions: bombPosArray, selectedCell: cell, revealedCells: [], hitMine: cell, gridSize: validGridSize });
+      res.json({ success: true, ...r, outcome: "loss", selectedCell: cell, hitMine: cell, minePositions: bombPosArray });
+    } else {
+      const multiplier = gameService.calculateMultiplier(totalTiles, bombCount, 1);
+      const payout = Math.floor(parseInt(wager) * multiplier);
+      const r = await gameService.resolveWin(gameRound._id, payout, multiplier, { bombCount, bombPositions: bombPosArray, selectedCell: cell, revealedCells: [cell], gridSize: validGridSize });
+      res.json({ success: true, ...r, outcome: "win", multiplier, selectedCell: cell, revealedCells: [cell] });
+    }
+  } catch (error) { res.status(400).json({ error: error.message }); }
+});
+
+router.get("/history", verifyToken, async (req, res) => { try { const r = await gameService.getGameHistory(req.user.id); res.json(r); } catch (error) { res.status(500).json({ error: error.message }); } });
+router.get("/stats", verifyToken, async (req, res) => { try { const stats = await gameService.getUserStats(req.user.id); res.json(stats); } catch (error) { res.status(500).json({ error: error.message }); } });
+
+module.exports = router;
