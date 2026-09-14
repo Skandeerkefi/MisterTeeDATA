@@ -176,4 +176,24 @@ router.get("/history", verifyToken, async (req, res) => {
 });
 router.get("/stats", verifyToken, async (req, res) => { try { const stats = await gameService.getUserStats(req.user.id); res.json(stats); } catch (error) { res.status(500).json({ error: error.message }); } });
 
+// POST /api/games/blackjack/bet  { wager }
+router.post("/blackjack/bet", verifyToken, async (req, res) => {
+  try {
+    const { wager } = req.body;
+    if (!wager) return res.status(400).json({ error: "wager required" });
+    const result = await gameService.playBlackjack(req.user.id, parseInt(wager));
+    res.json({ success: true, ...result });
+  } catch (error) { res.status(400).json({ error: error.message }); }
+});
+
+// POST /api/games/blackjack/resolve  { roundId, outcome, multiplier, message }
+router.post("/blackjack/resolve", verifyToken, async (req, res) => {
+  try {
+    const { roundId, outcome, multiplier, message } = req.body;
+    if (!roundId || !outcome || multiplier === undefined) return res.status(400).json({ error: "roundId, outcome, and multiplier are required" });
+    const result = await gameService.resolveBlackjack(req.user.id, roundId, outcome, parseFloat(multiplier), message || "");
+    res.json(result);
+  } catch (error) { res.status(400).json({ error: error.message }); }
+});
+
 module.exports = router;

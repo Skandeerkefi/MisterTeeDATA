@@ -247,6 +247,56 @@ const gameService = {
     stats.winRate = stats.totalGames > 0 ? ((stats.wins / stats.totalGames) * 100).toFixed(1) : "0";
     return stats;
   },
+
+  playBlackjack: async (userId, wager) => {
+    const { gameRound } = await gameService.placeWager(userId, GAME_TYPES.BLACKJACK, wager);
+    return { roundId: String(gameRound._id), wager: gameRound.wager };
+  },
+
+  resolveBlackjack: async (userId, roundId, clientOutcome, multiplier, message) => {
+    const gameRound = await GameRound.findOne({ _id: roundId, user: userId, game: GAME_TYPES.BLACKJACK, outcome: GAME_OUTCOMES.PENDING });
+    if (!gameRound) throw new Error("Blackjack round not found or already resolved");
+
+    // Map client-reported outcome to DB outcome
+    let dbOutcome, payout;
+    switch (clientOutcome) {
+      case "blackjack":
+        dbOutcome = GAME_OUTCOMES.WIN;
+        payout = Math.floor(gameRound.wager * multiplier);
+        break;
+      case "win":
+        dbOutcome = GAME_OUTCOMES.WIN;
+        payout = Math.floor(gameRound.wager * multiplier);
+        break;
+      case "push":
+        dbOutcome = GAME_OUTCOMES.TIE;
+        payout = gameRound.wager;
+        break;
+      case "bust":
+      case "lose":
+        dbOutcome = GAME_OUTCOMES.LOSS;
+        payout = 0;
+        break;
+      default:
+        throw new Error(`Invalid blackjack outcome: ${clientOutcome}`);
+    }
+
+    if (typeof multiplier !== "number" || multiplier < 0 || multiplier > 10) {
+      throw new Error("Invalid multiplier value");
+    }
+
+    gameRound.outcome = dbOutcome;
+    gameRound.payout = payout;
+    gameRound.multiplier = multiplier;
+    gameRound.meta = { ...(gameRound.meta || {}), clientOutcome, message };
+    await gameRound.save();
+
+    if (payout > gameRound.wager) {
+      await pointsService.addPoints(userId, payout - gameRound.wager, TRANSACTION_TYPES.GAME_PAYOUT, `Blackjack win (${clientOutcome})`, { game: GAME_TYPES.BLACKJACK, wager: gameRound.wager, payout });
+    }
+
+    return { success: true, outcome: dbOutcome, payout, multiplier, message, balance: await pointsService.getBalance(userId) };
+  },
 };
 
 module.exports = gameService;

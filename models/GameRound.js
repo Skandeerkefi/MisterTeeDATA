@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const GAME_TYPES = {
 	COIN_FLIP: "coinflip",
 	MINES: "mines",
+	BLACKJACK: "blackjack",
 };
 
 const GAME_OUTCOMES = {
