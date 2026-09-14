@@ -32,6 +32,10 @@ const affiliateSchema = new mongoose.Schema({
 		type: Number,
 		default: 0,
 	},
+	rewards: {
+		type: Array,
+		default: [],
+	},
 }, { timestamps: true });
 
 affiliateSchema.index({ order: 1 });

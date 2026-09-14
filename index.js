@@ -47,32 +47,41 @@ app.use((req, res, next) => {
 	next();
 });
 
-// CORS Middleware
+// CORS Middleware — allow local dev + Vercel prod/previews + custom domain
+const allowedOriginPatterns = [/^https:\/\/.*\.vercel\.app$/];
 const allowedOrigins = [
 	"http://localhost:5173",
 	"http://127.0.0.1:5173",
 	"https://mister-tee.vercel.app",
+	"https://www.misterteerewards.com",
+	"https://misterteerewards.com",
 	"misterteedata.railway.internal",
 	"https://mister-tee.vercel.app/Leaderboards",
-	"https://www.misterteerewards.com",
 ];
 
 app.use(
 	cors({
 		origin: function (origin, callback) {
-			// allow requests with no origin like curl or Postman
 			if (!origin) return callback(null, true);
-			if (allowedOrigins.includes(origin)) {
-				return callback(null, true);
-			} else {
-				return callback(new Error("CORS policy: This origin is not allowed"));
-			}
+			if (allowedOrigins.includes(origin)) return callback(null, true);
+			if (allowedOriginPatterns.some((re) => re.test(origin))) return callback(null, true);
+			return callback(new Error("CORS policy: This origin is not allowed"));
 		},
 		methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 		allowedHeaders: ["Content-Type", "Authorization", "x-creator-auth", "Accept"],
 		credentials: true,
 	})
 );
+
+app.options("*", cors({
+	origin: function (origin, callback) {
+		if (!origin) return callback(null, true);
+		if (allowedOrigins.includes(origin)) return callback(null, true);
+		if (allowedOriginPatterns.some((re) => re.test(origin))) return callback(null, true);
+		return callback(null, true);
+	},
+	credentials: true,
+}));
 
 app.use(express.json());
 
