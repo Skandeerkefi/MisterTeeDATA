@@ -12,6 +12,16 @@ const gameConfigSchema = new mongoose.Schema({
 		type: Boolean,
 		default: true,
 	},
+	// Min/Max bet limits (short label for UI)
+	minBet: {
+		type: Number,
+		default: 10,
+		min: 1,
+	},
+	maxBet: {
+		type: Number,
+		default: 10000,
+	},
 	// Wager limits
 	minWager: {
 		type: Number,

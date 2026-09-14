@@ -6,7 +6,7 @@ const { TRANSACTION_TYPES } = require("../models/PointsTransaction");
 const pointsService = require("./pointsService");
 
 // House edge for mines game (3-4% configurable, default 3%)
-const HOUSE_EDGE = 0.03;
+const HOUSE_EDGE = 0.15;
 
 // ————— Provably fair helpers —————
 function generateServerSeed() {

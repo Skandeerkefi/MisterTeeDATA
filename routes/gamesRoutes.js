@@ -8,7 +8,7 @@ const { GameRound, GAME_TYPES, GAME_OUTCOMES } = require("../models/GameRound");
 router.get("/config/:gameType", verifyToken, async (req, res) => {
   try {
     const config = await gameService.getGameConfig(req.params.gameType);
-    res.json({ minWager: config.minWager, maxWager: config.maxWager, dailyLossCap: config.dailyLossCap, active: config.active });
+    res.json({ minBet: config.minBet, maxBet: config.maxBet, minWager: config.minWager, maxWager: config.maxWager, dailyLossCap: config.dailyLossCap, active: config.active });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
