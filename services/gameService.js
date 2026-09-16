@@ -293,9 +293,14 @@ const gameService = {
 
     if (payout > gameRound.wager) {
       await pointsService.addPoints(userId, payout - gameRound.wager, TRANSACTION_TYPES.GAME_PAYOUT, `Blackjack win (${clientOutcome})`, { game: GAME_TYPES.BLACKJACK, wager: gameRound.wager, payout });
+      console.log(`[BJ] Added ${(payout - gameRound.wager)}pts to ${userId}, new balance: ${await pointsService.getBalance(userId)}`);
+    } else {
+      console.log(`[BJ] No payout added (payout=${payout} <= wager=${gameRound.wager}), outcome=${dbOutcome}`);
     }
 
-    return { success: true, outcome: dbOutcome, payout, multiplier, message, balance: await pointsService.getBalance(userId) };
+    const finalBalance = await pointsService.getBalance(userId);
+    console.log(`[BJ] Returning balance=${finalBalance} for round ${roundId}`);
+    return { success: true, outcome: dbOutcome, payout, multiplier, message, balance: finalBalance };
   },
 };
 
