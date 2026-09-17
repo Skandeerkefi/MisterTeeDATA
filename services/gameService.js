@@ -257,7 +257,12 @@ const gameService = {
     const gameRound = await GameRound.findOne({ _id: roundId, user: userId, game: GAME_TYPES.BLACKJACK, outcome: GAME_OUTCOMES.PENDING });
     if (!gameRound) throw new Error("Blackjack round not found or already resolved");
 
-    // Map client-reported outcome to DB outcome
+    // Validate multiplier FIRST (security — must happen before any calculations)
+    if (typeof multiplier !== "number" || multiplier < 0 || multiplier > 10) {
+      throw new Error("Invalid multiplier value");
+    }
+
+    // Map client-reported outcome to DB outcome & calculate payout
     let dbOutcome, payout;
     switch (clientOutcome) {
       case "blackjack":
@@ -281,26 +286,56 @@ const gameService = {
         throw new Error(`Invalid blackjack outcome: ${clientOutcome}`);
     }
 
-    if (typeof multiplier !== "number" || multiplier < 0 || multiplier > 10) {
-      throw new Error("Invalid multiplier value");
-    }
-
     gameRound.outcome = dbOutcome;
     gameRound.payout = payout;
     gameRound.multiplier = multiplier;
     gameRound.meta = { ...(gameRound.meta || {}), clientOutcome, message };
     await gameRound.save();
 
-    if (payout > gameRound.wager) {
-      await pointsService.addPoints(userId, payout - gameRound.wager, TRANSACTION_TYPES.GAME_PAYOUT, `Blackjack win (${clientOutcome})`, { game: GAME_TYPES.BLACKJACK, wager: gameRound.wager, payout });
-      console.log(`[BJ] Added ${(payout - gameRound.wager)}pts to ${userId}, new balance: ${await pointsService.getBalance(userId)}`);
+    // BUG FIX: Add FULL payout (not net profit). placeWager already deducted the wager,
+    // so we must return the complete payout amount for wins and pushes.
+    if (payout > 0) {
+      await pointsService.addPoints(userId, payout, TRANSACTION_TYPES.GAME_PAYOUT, `Blackjack ${dbOutcome}`, { game: GAME_TYPES.BLACKJACK, wager: gameRound.wager, payout });
+      console.log(`[BJ] Added ${payout}pts payout to ${userId}, new balance: ${await pointsService.getBalance(userId)}`);
     } else {
-      console.log(`[BJ] No payout added (payout=${payout} <= wager=${gameRound.wager}), outcome=${dbOutcome}`);
+      console.log(`[BJ] No payout (loss), outcome=${dbOutcome}`);
+    }
+
+    // Track daily losses for losing rounds
+    if (dbOutcome === GAME_OUTCOMES.LOSS) {
+      const user = await User.findById(userId);
+      user.resetDailyLossesIfNeeded();
+      const today = new Date().toISOString().split("T")[0];
+      user.dailyLosses = { date: today, amount: (user.dailyLosses?.amount || 0) + gameRound.wager };
+      await user.save();
+      console.log(`[BJ] Daily loss updated: ${user.dailyLosses.amount}pts`);
     }
 
     const finalBalance = await pointsService.getBalance(userId);
     console.log(`[BJ] Returning balance=${finalBalance} for round ${roundId}`);
     return { success: true, outcome: dbOutcome, payout, multiplier, message, balance: finalBalance };
+  },
+
+  doubleDownBlackjack: async (userId, roundId) => {
+    const gameRound = await GameRound.findOne({ _id: roundId, user: userId, game: GAME_TYPES.BLACKJACK, outcome: GAME_OUTCOMES.PENDING });
+    if (!gameRound) throw new Error("Blackjack round not found or already resolved");
+
+    const additionalWager = gameRound.wager; // double = match original wager
+    await gameService.validateWager(userId, GAME_TYPES.BLACKJACK, additionalWager);
+
+    const { transaction } = await pointsService.deductPoints(userId, additionalWager, TRANSACTION_TYPES.GAME_WAGER, `Blackjack double down`, { game: GAME_TYPES.BLACKJACK, roundId: String(gameRound._id) });
+
+    gameRound.wager = gameRound.wager * 2;
+    gameRound.meta = {
+      ...(gameRound.meta || {}),
+      doubleDown: true,
+      wagerTxIds: [...(gameRound.meta?.wagerTxIds || []), String(transaction._id)],
+    };
+    await gameRound.save();
+
+    const balance = await pointsService.getBalance(userId);
+    console.log(`[BJ] Double down: +${additionalWager}pts wagered, new total wager=${gameRound.wager}, balance=${balance}`);
+    return { roundId: String(gameRound._id), wager: gameRound.wager, balance };
   },
 };
 

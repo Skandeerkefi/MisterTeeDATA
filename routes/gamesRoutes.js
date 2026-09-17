@@ -196,4 +196,14 @@ router.post("/blackjack/resolve", verifyToken, async (req, res) => {
   } catch (error) { res.status(400).json({ error: error.message }); }
 });
 
+// POST /api/games/blackjack/double  { roundId }
+router.post("/blackjack/double", verifyToken, async (req, res) => {
+  try {
+    const { roundId } = req.body;
+    if (!roundId) return res.status(400).json({ error: "roundId required" });
+    const result = await gameService.doubleDownBlackjack(req.user.id, roundId);
+    res.json(result);
+  } catch (error) { res.status(400).json({ error: error.message }); }
+});
+
 module.exports = router;
