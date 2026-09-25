@@ -418,6 +418,105 @@ router.get("/rainbet", async (req, res) => {
 });
 
 
+// --- RustWild creator leaderboard (by username) ---
+const RUSTWILD_BASE_URL = process.env.RUSTWILD_BASE_URL || "https://rustwild.gg";
+const RUSTWILD_USERNAME = process.env.RUSTWILD_USERNAME || "MisterTee";
+const RUST_CACHE_TIME = 5 * 60 * 1000; // 5 minutes
+let rustCache = { data: null, key: "", timestamp: 0 };
+
+function resolveRustAvatar(avatarUrl) {
+  if (!avatarUrl) return null;
+  const url = String(avatarUrl);
+  if (/^https?:\/\//i.test(url)) return url;
+  // Relative paths (e.g. "/api/user/avatar/2268?v=...") point at rustwild.gg
+  return `${RUSTWILD_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+}
+
+router.get("/rust", async (req, res) => {
+  try {
+    const username =
+      (req.query.username && String(req.query.username).trim()) || RUSTWILD_USERNAME;
+    const cacheKey = username.toLowerCase();
+    const now = Date.now();
+
+    if (
+      rustCache.data &&
+      rustCache.key === cacheKey &&
+      now - rustCache.timestamp < RUST_CACHE_TIME
+    ) {
+      return res.json(rustCache.data);
+    }
+
+    const url = `${RUSTWILD_BASE_URL}/api/creator-leaderboards/by-username/${encodeURIComponent(
+      username
+    )}`;
+    const { data } = await axios.get(url, {
+      headers: { Accept: "application/json" },
+      timeout: 15000,
+    });
+
+    const entries = Array.isArray(data?.entries) ? data.entries : [];
+
+    // Rank by effective wager (falls back to raw wagerAmount); stable sort keeps
+    // upstream order for ties.
+    const users = [...entries]
+      .map((entry, index) => ({ entry, index }))
+      .sort(
+        (a, b) =>
+          Number(b.entry?.effectiveWager ?? b.entry?.wagerAmount ?? 0) -
+          Number(a.entry?.effectiveWager ?? a.entry?.wagerAmount ?? 0)
+      )
+      .map(({ entry }, rank) => {
+        const wager = Number(entry?.effectiveWager);
+        return {
+          id: entry?.id ?? null,
+          userId: entry?.userId ?? entry?.user?.id ?? null,
+          username: entry?.user?.username ?? "—",
+          avatar: resolveRustAvatar(entry?.user?.avatarUrl),
+          level: Number(entry?.user?.level) || 0,
+          wager: Number.isFinite(wager)
+            ? wager
+            : Number(entry?.wagerAmount) || 0,
+          rank: rank + 1,
+        };
+      });
+
+    const payload = {
+      users,
+      prizes: Array.isArray(data?.prizes)
+        ? data.prizes.map((p) => ({
+            place: Number(p?.place) || 0,
+            amount: Number(p?.amount) || 0,
+          }))
+        : [],
+      title: typeof data?.title === "string" ? data.title : null,
+      totalPrizePool: Number(data?.totalPrizePool) || 0,
+      frequency: data?.frequency ?? null,
+      status: data?.status ?? null,
+      creator: data?.creator ?? null,
+      period: {
+        from: data?.startAt ?? null,
+        to: data?.endAt ?? null,
+      },
+    };
+
+    rustCache = { data: payload, key: cacheKey, timestamp: now };
+    res.json(payload);
+  } catch (err) {
+    console.error("RustWild leaderboard fetch error:", err.response?.data || err.message);
+    const upstream = err.response?.data;
+    let errorMessage = "Failed to fetch Rust leaderboard";
+    if (typeof upstream === "string") errorMessage = upstream;
+    else if (upstream && typeof upstream === "object") {
+      if (upstream.message) errorMessage = String(upstream.message);
+      else if (upstream.error) errorMessage = String(upstream.error);
+    } else if (err.message) {
+      errorMessage = err.message;
+    }
+    res.status(err.response?.status || 500).json({ error: errorMessage });
+  }
+});
+
 // --- DYNAMIC ROUTES LAST ---
 router.get("/:startDate/:endDate", leaderboardController.getLeaderboardByDate);
 router.get("/", leaderboardController.getLeaderboard);
