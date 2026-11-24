@@ -436,13 +436,13 @@ router.get("/sixty", async (req, res) => {
       timeout: 15000,
     });
 
-    const rows = Array.isArray(data) ? data : (data?.data ?? []);
+    const rows = data?.data?.rows ?? [];
     const users = rows.map((row, index) => ({
-      id: row.userId ?? row.id ?? index,
-      username: row.username ?? row.name ?? "—",
-      avatar: row.avatar ?? row.profileImage ?? null,
-      wager: Number(row.wagered) || Number(row.wager) || Number(row.totalWager) || 0,
-      rank: Number.isFinite(Number(row.rank)) ? Number(row.rank) : index + 1,
+      id: null,
+      username: row.user_name ?? "—",
+      avatar: null,
+      wager: Number(row.total_wagered_amount) || 0,
+      rank: row.rank ?? index + 1,
     }));
 
     const prizes = [
