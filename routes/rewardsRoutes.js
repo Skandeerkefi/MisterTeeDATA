@@ -25,12 +25,6 @@ const rewardsData = {
     { icon: "🎁", label: "Monthly wager promotion" },
     { icon: "🔪", label: "Weekly free battle giveaway" },
   ],
-  JuiceGG: [
-    { icon: "🏅", label: "Monthly Leaderboard" },
-    { icon: "💵", label: "Weekly Deposit bonus" },
-    { icon: "🎁", label: "Monthly wager promotion" },
-    { icon: "🔪", label: "Weekly free battle giveaway" },
-  ],
 };
 
 router.post("/seed-rewards", async (req, res) => {
